@@ -42,9 +42,10 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
     SimpleCache.line.Valid = 0;
     SimpleCache.init = 1;
   }
-
+//creating only line pointer of simple cache
   CacheLine *Line = &SimpleCache.line;
 
+//getting info (tag and memaddress) from address
   Tag = address >> 3; // Why do I do this?
 
   MemAddress = address >> 3; // again this....!
