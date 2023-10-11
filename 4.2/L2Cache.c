@@ -95,9 +95,8 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 		}
 
 		// Read new block from memory to cache
-		//accessDRAM(MemAddress, Line->Data, MODE_READ); // get new block from DRAM
 		accessL2(address, Line->Data, MODE_READ); // get new block from L2
-		//FIXME
+
 		Line->Valid = 1;
 		Line->Tag = tag;
 		Line->Dirty = 0;
@@ -158,8 +157,6 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 		}
 		// Read new block from memory to cache
 		accessDRAM(MemAddress, L2_Line->Data, MODE_READ); // get new block from DRAM to L2
-		//FIXME gotta fetch to L1 as well:
-		//how
 
 		L2_Line->Valid = 1;
 		L2_Line->Tag = tag;
@@ -177,8 +174,8 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 
 	if (mode == MODE_WRITE) { // write data from cache line
 		//writing data in L2.line.data
+		//only happens when removing block from L1
 		memcpy(&(L2_Line->Data[offset]), data, WORD_SIZE);
-		//FIXME how to copy block to L1
 		time += L2_WRITE_TIME;
 		L2_Line->Dirty = 1;
 	}
