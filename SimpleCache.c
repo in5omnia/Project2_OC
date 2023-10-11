@@ -53,14 +53,15 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 
   /* access Cache*/
 
-  if (!Line->Valid || Line->Tag != Tag) {         // if block not present - miss
+  //if line is not valid or tag is not equal to tag of address (cache miss) aka
+  if (!Line->Valid || Line->Tag != Tag) {         // if block not present
     accessDRAM(MemAddress, TempBlock, MODE_READ); // get new block from DRAM
 
-    if ((Line->Valid) && (Line->Dirty)) { // line has dirty block
+    if ((Line->Valid) && (Line->Dirty)) { // line has a dirty block - block's been modified (line not empty)
       MemAddress = Line->Tag << 3;        // get address of the block in memory
       accessDRAM(MemAddress, &(L1Cache[0]), MODE_WRITE); // then write back old block
     }
-
+	//put desired block in cache
     memcpy(&(L1Cache[0]), TempBlock,
            BLOCK_SIZE); // copy new block to cache line
     Line->Valid = 1;
@@ -68,10 +69,13 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
     Line->Dirty = 0;
   } // if miss, then replaced with the correct block
 
+
+  /*if cache hit (correct index, validity and tag)*/
+
   if (mode == MODE_READ) {    // read data from cache line
     if (0 == (address % 8)) { // even word on block
       memcpy(data, &(L1Cache[0]), WORD_SIZE);
-    } else { // odd word on block
+    } else { // odd word on block	//WHAT
       memcpy(data, &(L1Cache[WORD_SIZE]), WORD_SIZE);
     }
     time += L1_READ_TIME;
