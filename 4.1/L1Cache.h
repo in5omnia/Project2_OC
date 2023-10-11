@@ -16,6 +16,8 @@ void resetTime();
 
 uint32_t getTime();
 
+#define L1_NUM_LINES (L1_SIZE / BLOCK_SIZE)
+
 /****************  RAM memory (byte addressable) ***************/
 void accessDRAM(uint32_t, uint8_t *, uint32_t);
 
@@ -28,11 +30,12 @@ typedef struct CacheLine {
 	uint8_t Valid;	//bits de validade e tag
 	uint8_t Dirty;
 	uint32_t Tag;
+	uint8_t Data[BLOCK_SIZE];
 } CacheLine;
 
 typedef struct L1Cache {
 	uint32_t init;
-	CacheLine* lines;	//ponteiro para a primeira (must be lista de linhas)
+	CacheLine lines[L1_NUM_LINES];	// Num of Lines = L1_SIZE / BLOCK_SIZE
 } L1Cache;
 
 /*********************** Interfaces *************************/
