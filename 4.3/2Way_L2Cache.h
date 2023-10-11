@@ -1,6 +1,6 @@
 
-#ifndef L2CACHE_H
-#define L2CACHE_H
+#ifndef _2WAY_L2CACHE_H
+#define _2WAY_L2CACHE_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,8 +12,9 @@ void resetTime();
 
 uint32_t getTime();
 
+#define L2_ASSOCIATIVITY 2
 #define L1_NUM_LINES (L1_SIZE / BLOCK_SIZE)
-#define L2_NUM_LINES (L2_SIZE / BLOCK_SIZE)
+#define L2_NUM_SETS (L2_SIZE / BLOCK_SIZE)/L2_ASSOCIATIVITY
 
 /****************  RAM memory (byte addressable) ***************/
 void accessDRAM(uint32_t, uint8_t *, uint32_t);
@@ -31,6 +32,10 @@ typedef struct CacheLine {
 	uint8_t Data[BLOCK_SIZE];
 } CacheLine;
 
+typedef struct CacheSet {
+	CacheLine lines[L2_ASSOCIATIVITY];
+} CacheSet;
+
 typedef struct L1Cache {
 	uint32_t init;
 	CacheLine lines[L1_NUM_LINES];	// Num of Lines = L1_SIZE / BLOCK_SIZE
@@ -38,7 +43,7 @@ typedef struct L1Cache {
 
 typedef struct L2Cache {
 	uint32_t init;
-	CacheLine lines[L2_NUM_LINES];	// Num of Lines = L1_SIZE / BLOCK_SIZE
+	CacheSet sets[L2_NUM_SETS];	// Num of Lines = (L1_SIZE / BLOCK_SIZE) / L2_ASSOCIATIVITY
 } L2Cache;
 
 
@@ -47,6 +52,7 @@ typedef struct L2Cache {
 void read(uint32_t, uint8_t *);
 
 void write(uint32_t, uint8_t *);
+
 
 
 #endif

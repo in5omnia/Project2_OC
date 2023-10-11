@@ -1,3 +1,5 @@
+#include "2Way_L2Cache.h"
+
 #include "L2Cache.h"
 
 
@@ -23,7 +25,7 @@ void accessDRAM(uint32_t address, uint8_t *data, uint32_t mode) {
 		time += DRAM_READ_TIME;
 	}
 	// write a block in memory RAM
-	else if (mode == MODE_WRITE) {
+	if (mode == MODE_WRITE) {
 		memcpy(&(DRAM[address]), data, BLOCK_SIZE);
 		time += DRAM_WRITE_TIME;
 	}
@@ -44,12 +46,14 @@ void initCache() {
 	L1.init = 1;
 
 	L2.init = 0;
-	for (int i = 0; i < L2_NUM_LINES; i++) {
-		L2.lines[i].Valid = 0;
-		L2.lines[i].Dirty = 0;
-		L2.lines[i].Tag = 0;
-		for (int j = 0; j < BLOCK_SIZE; j += WORD_SIZE) {
-			L2.lines[i].Data[j] = 0;
+	for (int i = 0; i < L2_NUM_SETS; i++) {
+		for (int k = 0; k < L2_ASSOCIATIVITY; k++) {
+			L2.lines[i][k].Valid = 0;
+			L2.lines[i][k].Dirty = 0;
+			L2.lines[i][k].Tag = 0;
+			for (int j = 0; j < BLOCK_SIZE; j += WORD_SIZE) {
+				L2.lines[i][k].Data[j] = 0;
+			}
 		}
 	}
 	L2.init = 1;
@@ -109,7 +113,8 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 		memcpy(data, &(Line->Data[offset]), WORD_SIZE);
 		time += L1_READ_TIME;
 	}
-	else if (mode == MODE_WRITE) { // write data from cache line
+
+	if (mode == MODE_WRITE) { // write data from cache line
 		memcpy(&(Line->Data[offset]), data, WORD_SIZE);
 		time += L1_WRITE_TIME;
 		Line->Dirty = 1;
@@ -130,28 +135,39 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 	// each L2 cache line will be 16*4 = 64 bytes long.
 	// As our L2 cache is byte-addressable, we will need log2(64) = 6 bits for our offset.
 	// Furthermore, as our cache size is 512*BLOCK_SIZE, we can infer that our L2 cache has 512 lines.
-	// As a result, we will need log2(512) = 9 bits to index our L2 cache.
+	// Considering that our L2 cache is 2-way associative, our "real" number of line, for
+	// indexation purposes, will be 512/2 = 256. To index 256 lines, we will need log2(256) = 8 bits.
 	// As per the usual cache address composition, the tag will occupy the remaining bits.
-	// Our addresses are always 32 bits long, so our tag will occupy the first 32-9-6 = 17 bits.
+	// Our addresses are always 32 bits long, so our tag will occupy the first 32-8-6 = 16 bits.
 
-	tag = address >> 15; // extracting the tag from the address (removing 15 least significant bits)
-	uint32_t index_mask = 0x7FC0; // = 0b00000000000000000111111111000000
+	tag = address >> 14; // extracting the tag from the address (removing 14 least significant bits)
+	uint32_t index_mask = 0x3FC0; // = 0b00000000000000000011111111000000
 	index = address && index_mask;
 	uint32_t offset_mask = 0x3F; // = 0b00000000000000000000000000111111
 	offset = address && offset_mask;
 
-
 	MemAddress = (address >> 6) << 6; // address of the block in memory
 	// (last bits must be 0, no offset needed)
 	// creating line pointer
-	CacheLine *L2_Line = &L2.lines[index];
+	CacheLine *L2_Lines = L2.sets[index].lines;
 
 	// accessing the L2 cache
 
 	// CACHE MISS (invalid line or incorrect tag)
-	if (!L2_Line->Valid || L2_Line->Tag != tag) {
+	int way = 0;
+	int hit = 0;
 
-		if ((L2_Line->Valid) && (L2_Line->Dirty)) {	// line has a dirty block - block's been modified (line not empty)
+	CacheLine L2_Line = L2_Lines[way];
+	for (;way < L2_ASSOCIATIVITY; way++) {
+		if (L2_Line->Valid && L2_Line->Tag == tag) {    //if cache hit
+			hit = 1;
+			break;
+		}
+	}
+
+	// CACHE MISS
+	if (!hit) {
+		if ((L2_Line->Valid) && (L2_Line->Dirty)) {    // line has a dirty block - block's been modified (line not empty)
 			accessDRAM(MemAddress, L2_Line->Data, MODE_WRITE); // then write back old block (write-back policy!)
 		}
 		// Read new block from memory to cache
@@ -162,17 +178,15 @@ void accessL2(uint32_t address, uint8_t *data, uint32_t mode) {
 		L2_Line->Dirty = 0;
 	}
 
-
-	// L2 CACHE HIT (correct index, validity and tag)
-
-	if (mode == MODE_READ) {    // fetch block from l2 to L1
-		//data = L1.line.Data here
+	// L2 CACHE HIT
+	if (mode == MODE_READ) {    // fetch block from L2 to L1
+		// (data = l1.line.data return buffer)
 		memcpy(data, &(L2_Line->Data), WORD_SIZE);
 		time += L2_READ_TIME;
-	}
-	else if (mode == MODE_WRITE) { // write data from cache line
-		//writing data in L2.line.data
-		//only happens when removing block from L1
+
+	} else if (mode == MODE_WRITE) { // write data from cache line
+		// writing data in L2.line.data
+		// only happens when removing block from L1
 		memcpy(&(L2_Line->Data[offset]), data, WORD_SIZE);
 		time += L2_WRITE_TIME;
 		L2_Line->Dirty = 1;
@@ -186,3 +200,4 @@ void read(uint32_t address, uint8_t *data) {
 void write(uint32_t address, uint8_t *data) {
 	accessL1(address, data, MODE_WRITE);
 }
+

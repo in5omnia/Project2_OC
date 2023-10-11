@@ -21,7 +21,7 @@ void accessDRAM(uint32_t address, uint8_t *data, uint32_t mode) {
 		time += DRAM_READ_TIME;
 	}
 	// write a block in memory RAM
-	if (mode == MODE_WRITE) {
+	else if (mode == MODE_WRITE) {
 		memcpy(&(DRAM[address]), data, BLOCK_SIZE);
 		time += DRAM_WRITE_TIME;
 	}
@@ -96,8 +96,7 @@ void accessL1(uint32_t address, uint8_t *data, uint32_t mode) {
 		memcpy(data, &(Line->Data[offset]), WORD_SIZE);
 		time += L1_READ_TIME;
 	}
-
-	if (mode == MODE_WRITE) { // write data from cache line
+	else if (mode == MODE_WRITE) { // write data from cache line
 		memcpy(&(Line->Data[offset]), data, WORD_SIZE);
 		time += L1_WRITE_TIME;
 		Line->Dirty = 1;
